@@ -1,0 +1,38 @@
+[project]
+name = "protein-models"
+version = "0.1.0"
+description = "Protein structure modeling experiments"
+requires-python = ">=3.8,<3.13"
+dependencies = [
+    "torch>=2.0.0,<3.0.0",
+    "numpy",
+    "pytest",
+    "matplotlib",
+    "scikit-learn",
+    "tqdm",
+    "scikit-image",
+    "biopython",
+    "pandas",
+    "seaborn",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v"
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+
+[tool.black]
+line-length = 88
+target-version = ['py39']
+include = '\.pyi?$'
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3 
