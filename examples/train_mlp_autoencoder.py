@@ -12,19 +12,25 @@ from tqdm import tqdm
 import sys
 from skimage.metrics import structural_similarity as ssim
 
+def normalize(matrix):
+    mean = matrix.mean()
+    std = matrix.std()
+    return (matrix - mean) / std, mean, std
+
+def denormalize(matrix, mean, std):
+    return matrix * std + mean
+
 def main():
     data_file = Path("data/test_distance_matrices_16.npy")
     if not data_file.exists():
         raise FileNotFoundError(f"Test matrices file not found: {data_file}")
 
     n_samples = 1000
-    noise_std = 0.2
+    noise_std = 1.5
     batch_size = 32
     epochs = 50
     if torch.backends.mps.is_available():
         device = torch.device("mps")
-    elif torch.cuda.is_available():
-        device = torch.device("cuda")
     else:
         device = torch.device("cpu")
     print(f"Using device: {device}")
@@ -43,41 +49,61 @@ def main():
     print("\nGenerating training samples...")
     train_noisy = []
     train_clean = []
+    train_means = []
+    train_stds = []
     for i in tqdm(range(n_samples), desc="Creating training data"):
         matrix_idx = np.random.randint(len(original_matrices))
         original_matrix = original_matrices[matrix_idx]
         tensor = torch.from_numpy(original_matrix).float()
         noisy_tensor = NoiseTransforms.add_gaussian_noise(tensor, std=noise_std)
-        train_noisy.append(noisy_tensor.numpy())
-        train_clean.append(original_matrix)
+        
+        # Normalize matrices
+        normalized_noisy, mean, std = normalize(noisy_tensor.numpy())
+        normalized_clean, _, _ = normalize(original_matrix)
+        
+        train_noisy.append(normalized_noisy)
+        train_clean.append(normalized_clean)
+        train_means.append(mean)
+        train_stds.append(std)
     
     np.save(train_dir / "noisy.npy", np.stack(train_noisy))
     np.save(train_dir / "clean.npy", np.stack(train_clean))
+    np.save(train_dir / "means.npy", np.array(train_means))
+    np.save(train_dir / "stds.npy", np.array(train_stds))
 
     print("\nGenerating validation samples...")
     val_noisy = []
     val_clean = []
+    val_means = []
+    val_stds = []
     for i in tqdm(range(n_samples // 5), desc="Creating validation data"):
         matrix_idx = np.random.randint(len(original_matrices))
         original_matrix = original_matrices[matrix_idx]
         tensor = torch.from_numpy(original_matrix).float()
         noisy_tensor = NoiseTransforms.add_gaussian_noise(tensor, std=noise_std)
-        val_noisy.append(noisy_tensor.numpy())
-        val_clean.append(original_matrix)
+        
+        # Normalize matrices
+        normalized_noisy, mean, std = normalize(noisy_tensor.numpy())
+        normalized_clean, _, _ = normalize(original_matrix)
+        
+        val_noisy.append(normalized_noisy)
+        val_clean.append(normalized_clean)
+        val_means.append(mean)
+        val_stds.append(std)
     
     np.save(val_dir / "noisy.npy", np.stack(val_noisy))
     np.save(val_dir / "clean.npy", np.stack(val_clean))
+    np.save(val_dir / "means.npy", np.array(val_means))
+    np.save(val_dir / "stds.npy", np.array(val_stds))
 
     print("\nSetting up data loaders...")
     train_dataset = ProteinDistanceDataset(
         train_dir / "noisy.npy",
-        transform=DistanceMatrixTransforms.normalize,
         return_pairs=True
     )
 
     val_dataset = ProteinDistanceDataset(
         val_dir / "noisy.npy",
-        transform=DistanceMatrixTransforms.normalize,
         return_pairs=True
     )
 
@@ -152,13 +178,25 @@ def main():
         predictions = model(noisy_batch.view(noisy_batch.size(0), -1))
         predictions = predictions.view(clean_batch.size())
         
+        # Load means and stds for denormalization
+        val_means = np.load(val_dir / "means.npy")
+        val_stds = np.load(val_dir / "stds.npy")
+        
+        # Denormalize for visualization and SSIM
+        predictions = predictions.cpu().numpy()
+        clean_batch = clean_batch.cpu().numpy()
+        noisy_batch = noisy_batch.cpu().numpy()
+        
         fig_dir = train_dir / "figures"
         fig_dir.mkdir(exist_ok=True)
         
         for i in range(min(5, len(predictions))):
-            clean = clean_batch[i].cpu().numpy()
-            noisy = noisy_batch[i].cpu().numpy()
-            pred = predictions[i].cpu().numpy()
+            mean = val_means[i]
+            std = val_stds[i]
+            
+            clean = denormalize(clean_batch[i], mean, std)
+            noisy = denormalize(noisy_batch[i], mean, std)
+            pred = denormalize(predictions[i], mean, std)
             
             ssim_noisy = ssim(clean, noisy, data_range=clean.max() - clean.min())
             ssim_pred = ssim(clean, pred, data_range=clean.max() - clean.min())

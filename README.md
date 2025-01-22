@@ -12,11 +12,11 @@ The current implementation serves as a proof of concept using small (16x16) dist
 
 ### Data
 
-PDB files are downloaded and processed using the `data/download_pdbs.py` and `data/get_pairwise_matrices.py` scripts, the idea being to extract non-overlapping protein fragments and calculate pairwise distance matrices for each fragment.
+PDB files are downloaded and processed using the `data/download_pdbs.py` and `data/get_pairwise_matrices.py` scripts, the idea being to extract non-overlapping protein fragments and calculate pairwise distance matrices for each one.
 
 ### Sample Reconstruction
 
-![Sample Reconstruction](data/train_denoising/figures/reconstruction_3.png)
+![Sample Reconstruction](data/train_denoising/figures/reconstruction_4.png)
 
 ## Next Steps
 

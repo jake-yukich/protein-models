@@ -7,7 +7,9 @@ class NoiseTransforms:
     @staticmethod
     def add_gaussian_noise(tensor: torch.Tensor, std: float = 0.2) -> torch.Tensor:
         """Add Gaussian noise to tensor"""
-        return tensor + torch.randn_like(tensor) * std
+        noise = torch.randn_like(tensor) * std
+        noisy_tensor = tensor + noise
+        return noisy_tensor.clamp(min=tensor.min().item(), max=tensor.max().item())
     
     @staticmethod
     def mask_random_entries(tensor: torch.Tensor, mask_prob: float = 0.15) -> torch.Tensor:
