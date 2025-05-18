@@ -1,6 +1,6 @@
 # protein-models
 
-Exploring deep learning models for protein structure prediction. *Work in progress.*
+Exploring deep learning models for protein structure prediction.
 
 ## Overview
 
